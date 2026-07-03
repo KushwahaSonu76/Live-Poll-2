@@ -32,3 +32,5 @@ impl LivePollContract {
             .unwrap_or(Map::new(&env))
     }
 }
+
+mod test;
