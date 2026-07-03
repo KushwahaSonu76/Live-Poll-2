@@ -20,7 +20,7 @@ export function ResultsDisplay({ results, options, onRefresh, isLoading }: Props
             onClick={onRefresh} 
             disabled={isLoading}
             className="p-1.5 hover:bg-gray-700 rounded-lg text-gray-400 hover:text-white transition-all disabled:opacity-50"
-            title="Refresh Results"
+            title="Click to fetch latest results"
           >
             <RotateCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
