@@ -32,7 +32,7 @@ function App() {
         </main>
         
         <footer className="mt-20 text-center text-sm text-gray-500">
-          Built on Soroban • Stellar Testnet
+          Built on Soroban • Stellar Testnet v1.0.0
         </footer>
       </div>
     </div>
