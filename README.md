@@ -1,41 +1,153 @@
-# Stellar Payment Tracker
+# Payment Tracker - Stellar Testnet dApp
 
-A fully functional, real-time decentralized application (dApp) built on the Stellar Testnet for tracking and executing payments with on-chain verification. This project is submitted for the Level 2 - Yellow Belt certification. The application acts as a "Payment Tracker", where users can send XLM payments to multiple addresses and record every payment on a Soroban smart contract with real-time status updates.
+A fully functional, real-time decentralized application (dApp) built on the Stellar Testnet for tracking and executing payments with on-chain verification. This project is submitted for the Level 2 - Yellow Belt certification.
+
+Payment Tracker allows users to connect their Stellar wallet, send XLM to multiple recipient addresses simultaneously, and securely record the payments along with their real-time statuses (`pending`, `success`, `failed`) directly on a Soroban smart contract.
 
 ## Features
 
-- **Multi-Wallet Support:** Seamlessly connects with popular Stellar wallets including Freighter, xBull, and Albedo via `@creit.tech/stellar-wallets-kit`.
-- **Smart Contract Integration:** Utilizes a custom Soroban smart contract deployed on the Stellar Testnet to securely record payment metadata (sender, recipient, amount, status, timestamp) on-chain.
-- **Real-Time State Sync:** Automatically polls and synchronizes smart contract state and transaction progress without relying on artificial timeouts, giving users an accurate representation of on-chain operations.
-- **Robust Error Handling:** Safely manages 3 primary failure modes:
-  1. **Wallet not found:** Detects when a wallet extension is missing or unlinked.
-  2. **Transaction rejected:** Handles user-aborted operations directly from the wallet prompt.
-  3. **Insufficient balance / Contract error:** Validates Horizon `op_underfunded` and execution failures, gracefully rolling back the contract status to 'failed'.
+- **Multi-Wallet Support via StellarWalletsKit:** Integration with **Freighter**, **xBull**, and **Albedo** wallets using `@creit.tech/stellar-wallets-kit` for seamless authentication and transaction signing on the Testnet.
+- **Multi-Address XLM Payments:** Users can add multiple recipient addresses and specify amounts in a single interface to execute multiple transactions.
+- **Smart Contract Deployed on Soroban Testnet:** The application calls a custom Rust smart contract to track and record payment metadata (sender, recipient, amount, status, timestamp).
+- **Real-Time Payment History:** Dynamic ledger queries display a live feed of all payments initiated by the connected wallet with corresponding status badges (`pending`, `success`, `failed`).
+- **Transaction Status Tracking:** Tracks the complete cycle of transaction processing (recording → simulating → signing → submitting → sending XLM → confirming → success/error).
+- **3 Handled Error Types:**
+  1. **Wallet Not Found:** Notifies the user if the selected wallet extension is not installed or detected.
+  2. **Transaction Rejected:** Gracefully catches instances when the user cancels or rejects the signing prompt in their wallet.
+  3. **Insufficient Balance / Contract Error:** Detects Horizon failures (e.g., `op_underfunded` due to low XLM balance) or contract call panics, immediately updating the status to `failed` and warning the user.
 
 ## Tech Stack
 
-- **Frontend:** React, Vite, TypeScript, TailwindCSS v4
-- **Smart Contract:** Rust, Soroban SDK
-- **Stellar Libraries:** `@creit.tech/stellar-wallets-kit`, `@stellar/stellar-sdk`
-- **Network:** Stellar Testnet (Horizon & Soroban RPC)
+- **Frontend:** React, Vite, TypeScript, Tailwind CSS
+- **Smart Contract:** Rust + Soroban SDK
+- **Stellar Libraries:** `@stellar/stellar-sdk`, `@creit.tech/stellar-wallets-kit`
+- **Development Tooling:** Stellar CLI, Node.js
 
-## Smart Contract Details
+## Deployed Contract Info
 
 - **Contract ID:** `CAG52EC6BOCVCMCEBJBRGOECSLOC6S5E56B7TBCTVTRUBGTFEV75R3BA`
-- **WASM Upload Transaction Hash:** `5bc3949d55301457e3a12a134c11dd2b011066c59eb998e20c7e586e58bdd498`
+- **Network:** Stellar Testnet
+- **Deployment Command Used:**
+  ```bash
+  stellar contract deploy \
+    --wasm target/wasm32-unknown-unknown/release/payment_tracker.wasm \
+    --source-profile default \
+    --network testnet
+  ```
+- **Stellar Expert Link:** [Stellar.expert Contract Explorer](https://stellar.expert/explorer/testnet/contract/CAG52EC6BOCVCMCEBJBRGOECSLOC6S5E56B7TBCTVTRUBGTFEV75R3BA)
+
+## Sample Transaction
+
 - **Contract Deploy Transaction Hash:** `0958cf3bc2da31b9d8b7aebc65c8d5d3d529eeff3e125fb7c88872ec2b15d34f`
+- **Link:** [Stellar.expert Transaction Explorer](https://stellar.expert/explorer/testnet/tx/0958cf3bc2da31b9d8b7aebc65c8d5d3d529eeff3e125fb7c88872ec2b15d34f)
 
-## How to Run the Project
+## Prerequisites
 
-1. **Clone the repository and install dependencies:**
+- **Rust + Soroban CLI** (for building/deploying smart contracts)
+- **Node.js** (v18.0.0 or higher recommended)
+- **Wallet Extension:** Freighter, xBull, or Albedo installed in your browser and set to **Testnet**
+- **Testnet XLM:** Funded via [Friendbot](https://friendbot.stellar.org)
+
+## Setup Instructions (Local Run)
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/KushwahaSonu76/Live-Poll-2.git
+   cd Live-Poll-2
+   ```
+
+2. **Install dependencies:**
    ```bash
    npm install --legacy-peer-deps
    ```
 
-2. **Start the local development server:**
+3. **(Optional) Build & Deploy Contract:**
+   If you want to deploy your own contract:
+   ```bash
+   cd contracts/payment_tracker
+   cargo build --target wasm32-unknown-unknown --release
+   stellar contract deploy --wasm target/wasm32-unknown-unknown/release/payment_tracker.wasm --source-profile default --network testnet
+   ```
+
+4. **Configure Contract ID:**
+   Open `src/lib/soroban.ts` and set your contract ID:
+   ```typescript
+   export const contractId = "YOUR_DEPLOYED_CONTRACT_ID";
+   ```
+
+5. **Run the local development server:**
    ```bash
    npm run dev
    ```
 
-3. **Open the browser:**
-   Navigate to the local URL (usually `http://localhost:5173`) to view the application. Connect your Freighter, xBull, or Albedo wallet (on Testnet) and start sending and tracking payments.
+6. **Open the application:**
+   Navigate to `http://localhost:5173` in your browser.
+
+## How to Use
+
+1. Click on the **Connect Wallet** button in the top navigation bar.
+2. Select your preferred wallet (Freighter, xBull, or Albedo) from the modal.
+3. In the **Send Payments** form, enter the recipient's public key and the XLM amount.
+4. Click **+ Add Recipient** if you want to pay multiple addresses at once.
+5. Click **Send Payments**.
+6. The app will initiate Step 1 and ask you to approve the `record_payment` contract call to write a `"pending"` receipt.
+7. Once confirmed, Step 2 will open a second wallet popup to sign the actual XLM payment operation.
+8. Step 3 will run immediately after to call `update_status` and finalize the record as `"success"` or `"failed"`.
+9. The **Payment History** table below will instantly refresh to display the updated transaction record.
+
+## Error Handling Section
+
+- **Wallet Not Found:** If a wallet is selected but its extension is not installed, the app displays a clear notification banner advising the user to install the wallet.
+- **Transaction Rejected:** If the user declines to sign a transaction in their wallet, the app catches the rejection error and displays a `"Transaction was rejected in the wallet."` message without crashing the flow.
+- **Insufficient Balance / Contract Error:** In case the sender has insufficient XLM to complete the transfer or pay gas fees, the application updates the record status to `"failed"` on-chain, stops the process, and renders an `"Insufficient balance / contract execution error"` banner.
+
+## Screenshots
+
+### Wallet Options Available
+![wallet-options](./screenshots/wallet-options.png)
+
+### Payment Form & Transaction Status
+![tx-status](./screenshots/tx-status.png)
+
+### Real-Time Payment History
+![payment-history](./screenshots/payment-history.png)
+
+## Commit History Note
+
+This repository contains a detailed commit history of **40+ meaningful commits** representing development milestones such as UI component scoping, Soroban integrations, build-time configurations, contract error handling, and ledger version compatibility fixes.
+
+## Folder Structure
+
+```text
+Live-Poll-2/
+├── contracts/
+│   └── payment_tracker/
+│       ├── Cargo.toml
+│       └── src/
+│           └── lib.rs
+├── public/
+│   ├── favicon.svg
+│   └── icons.svg
+├── src/
+│   ├── components/
+│   │   ├── ErrorBanner.tsx
+│   │   ├── PaymentHistoryTable.tsx
+│   │   ├── SendPaymentForm.tsx
+│   │   ├── TxStatusTracker.tsx
+│   │   └── WalletSelector.tsx
+│   ├── lib/
+│   │   ├── soroban.ts
+│   │   ├── stellar.ts
+│   │   └── wallet.ts
+│   ├── App.tsx
+│   ├── index.css
+│   └── main.tsx
+├── package.json
+└── README.md
+```
+
+## Known Limitations / Notes
+
+- **Network Scope:** The dApp is configured exclusively for the Stellar Testnet.
+- **Transaction Fees:** Submitting state to the blockchain requires gas fees in XLM; please ensure your connected wallet has testnet funds.
+- **Polling Time:** On-chain transaction status polling is set to check the RPC node every 2 seconds.
