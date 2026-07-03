@@ -7,22 +7,26 @@ export const server = new StellarSdk.rpc.Server(rpcUrl);
 
 // Get the poll results from the contract
 export async function fetchResults(): Promise<Record<number, number>> {
+  // 1. Initialize the Contract instance with the deployed contract ID
   const contract = new StellarSdk.Contract(contractId);
+  
+  // 2. Build a read-only transaction. We use a zero account (all Gs) since this is just for reading state (simulation)
   const tx = new StellarSdk.TransactionBuilder(
     new StellarSdk.Account("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF", "0"),
     { fee: "100", networkPassphrase }
   )
+    // 3. Add the contract invocation operation calling the "get_results" function
     .addOperation(contract.call("get_results"))
     .setTimeout(30)
     .build();
 
-  // Simulate to read data
+  // 4. Simulate the transaction using the Soroban RPC server to get the return value
   const response = await server.simulateTransaction(tx);
   if (StellarSdk.rpc.Api.isSimulationError(response)) {
     throw new Error("Simulation error: " + response.error);
   }
 
-  // Parse result (a map)
+  // 5. Parse the returned SCVal map into a JavaScript object
   if (response.result && response.result.retval) {
     const scval = response.result.retval;
     const map = scval.map();
