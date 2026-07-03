@@ -1,64 +1,96 @@
-import * as StellarSdk from "@stellar/stellar-sdk";
+import * as StellarSdk from '@stellar/stellar-sdk';
 
+export const contractId = "CAG52EC6BOCVCMCEBJBRGOECSLOC6S5E56B7TBCTVTRUBGTFEV75R3BA"; // Will update after deployment
 export const rpcUrl = "https://soroban-testnet.stellar.org";
 export const networkPassphrase = "Test SDF Network ; September 2015";
-export const contractId = "CB3XOKM2GPZTXYDKKR7BDRCBEYP2B5N42IQNGL77XX66Y6FZWMJMBNX6";
+
 export const server = new StellarSdk.rpc.Server(rpcUrl);
 
-// Get the poll results from the contract
-// fetchResults connects to the Soroban RPC and simulates a get_results transaction
-export async function fetchResults(): Promise<Record<number, number>> {
-  // 1. Initialize the Contract instance with the deployed contract ID
-  const contract = new StellarSdk.Contract(contractId);
+// Generic function to simulate and prepare a transaction
+export async function simulateTransaction(
+  publicKey: string,
+  methodName: string,
+  args: StellarSdk.xdr.ScVal[] = []
+): Promise<StellarSdk.Transaction> {
+  const account = await server.getAccount(publicKey);
   
-  // 2. Build a read-only transaction. We use a zero account (all Gs) since this is just for reading state (simulation)
-  const tx = new StellarSdk.TransactionBuilder(
-    new StellarSdk.Account("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF", "0"),
-    { fee: "100", networkPassphrase }
-  )
-    // 3. Add the contract invocation operation calling the "get_results" function
-    .addOperation(contract.call("get_results"))
+  const contract = new StellarSdk.Contract(contractId);
+  const operation = contract.call(methodName, ...args);
+
+  const tx = new StellarSdk.TransactionBuilder(account, {
+    fee: "100",
+    networkPassphrase,
+  })
+    .addOperation(operation)
     .setTimeout(30)
     .build();
 
-  // 4. Simulate the transaction using the Soroban RPC server to get the return value
-  const response = await server.simulateTransaction(tx);
-  if (StellarSdk.rpc.Api.isSimulationError(response)) {
-    throw new Error("Simulation error: " + response.error);
+  const simResponse = await server.simulateTransaction(tx);
+  
+  if (StellarSdk.rpc.Api.isSimulationError(simResponse)) {
+    throw new Error(`Simulation failed: ${simResponse.error}`);
   }
 
-  // 5. Parse the returned SCVal map into a JavaScript object
-  if (response.result && response.result.retval) {
-    const scval = response.result.retval;
-    const map = scval.map();
-    if (!map) return {};
-
-    const results: Record<number, number> = {};
-    for (const entry of map) {
-      const key = entry.key().u32();
-      const val = entry.val().u32();
-      if (key !== undefined && val !== undefined) {
-        results[key] = val;
-      }
-    }
-    return results;
-  }
-  return {};
+  // Assemble the transaction using the simulation result
+  const assembledTx = StellarSdk.rpc.assembleTransaction(tx, simResponse);
+  return assembledTx.build();
 }
 
-// Poll transaction status
-export async function pollTransactionStatus(hash: string) {
-  let attempts = 0;
-  while (attempts < 20) {
-    const response = await server.getTransaction(hash);
-    if (response.status === StellarSdk.rpc.Api.GetTransactionStatus.SUCCESS) {
-      return response;
-    } else if (response.status === StellarSdk.rpc.Api.GetTransactionStatus.FAILED) {
-      throw new Error(`Transaction failed: ${JSON.stringify(response.resultXdr)}`);
-    }
-    // NOT_FOUND means it is still pending
-    attempts++;
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+// Check transaction status
+export async function pollTransactionStatus(hash: string): Promise<StellarSdk.rpc.Api.GetTransactionResponse> {
+  let statusResp: StellarSdk.rpc.Api.GetTransactionResponse;
+  do {
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    statusResp = await server.getTransaction(hash);
+  } while (statusResp.status === StellarSdk.rpc.Api.GetTransactionStatus.NOT_FOUND);
+  
+  return statusResp;
+}
+
+export async function getAllPayments(sender: string) {
+  const contract = new StellarSdk.Contract(contractId);
+  const operation = contract.call("get_all_payments", new StellarSdk.Address(sender).toScVal());
+
+  const account = new StellarSdk.Account("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF", "0");
+  const tx = new StellarSdk.TransactionBuilder(account, {
+    fee: "100",
+    networkPassphrase,
+  })
+    .addOperation(operation)
+    .setTimeout(30)
+    .build();
+
+  const simResponse = await server.simulateTransaction(tx);
+  if (StellarSdk.rpc.Api.isSimulationError(simResponse) || !simResponse.result) {
+    return [];
   }
-  throw new Error("Transaction polling timed out");
+
+  const resultVal = simResponse.result.retval;
+  if (resultVal.switch() !== StellarSdk.xdr.ScValType.scvVec()) {
+    return [];
+  }
+
+  const vec = resultVal.vec();
+  if (!vec) return [];
+
+  return vec.map((item) => {
+    // Structure: sender, recipient, amount, status, timestamp
+    const map = item.map();
+    if (!map) return null;
+    
+    // We can extract map fields based on standard rust struct layout
+    // But Soroban maps rust structs to ordered map arrays based on field names
+    let record: any = {};
+    for (const entry of map) {
+      const key = entry.key().sym().toString();
+      const val = entry.val();
+      
+      if (key === 'sender') record.sender = StellarSdk.scValToNative(val);
+      if (key === 'recipient') record.recipient = StellarSdk.scValToNative(val);
+      if (key === 'amount') record.amount = StellarSdk.scValToNative(val).toString();
+      if (key === 'status') record.status = StellarSdk.scValToNative(val);
+      if (key === 'timestamp') record.timestamp = Number(StellarSdk.scValToNative(val));
+    }
+    return record;
+  }).filter(Boolean);
 }
