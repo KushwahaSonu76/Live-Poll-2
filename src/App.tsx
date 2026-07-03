@@ -20,7 +20,7 @@ function App() {
               <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 tracking-tight">
                 Stellar Poll
               </h1>
-              <p className="text-indigo-400 font-medium text-sm uppercase tracking-wider">Testnet Edition</p>
+              <p className="text-indigo-400 font-medium text-xs uppercase tracking-wider">Testnet Edition • Connected</p>
             </div>
           </div>
           <WalletSelector publicKey={publicKey} setPublicKey={setPublicKey} setError={setError} />
