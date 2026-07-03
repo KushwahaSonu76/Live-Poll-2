@@ -5,6 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Custom configurations for Vite compilation
   plugins: [
     react(),
     tailwindcss(),
